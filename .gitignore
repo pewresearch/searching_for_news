@@ -1,0 +1,9 @@
+*.log
+*~
+.env/
+*.pyc
+*.csv
+.[Dd][Ss]_[Ss]tore
+.build/
+build.zip
+config.txt
