@@ -75,10 +75,11 @@ combine_category = function(f, local_title, save_path) {
   }
   else
   {
-    # convert data to long format
-    print("Converting to long format")
+    # Complete some preprocessing before imputation.
+    # (Data are already in long format)
+    print("Extracting qq and log values. Converting values of 0 to NA.")
     print(head(df))
-    long = df %>% gather(sample, value, -period)
+    long = df
     long = long %>% group_by(period) %>%
       mutate(qq = get_qq(value),
              value2 = na_if(value, 0),
@@ -87,23 +88,23 @@ combine_category = function(f, local_title, save_path) {
     long$timeperiod = long$period
     
     # Fit mixed effects model allowing intercept and slope to vary by sample and period
-    print("Running Mixed effects model")
+    print("Running Mixed effects model.")
     lm1 = lmer(log_value~qq + (1 + qq|period) + (1 + qq|sample), REML = F, data=long)
     
     # Get coefficients in order to calculate predicted values conditional on week and sample
-    print("Determining period and sample effects")
+    print("Determining period and sample effects.")
     period_effects = as.data.frame(ranef(lm1)$period) %>% select(int_period=1, qq_period=2)
     period_effects$period = row.names(period_effects)
     sample_effects = as.data.frame(ranef(lm1)$sample) %>% select(int_sample=1, qq_sample=2)
     sample_effects$sample = row.names(sample_effects)
     
-    print("Running Fixed effect model")
+    print("Running Fixed effects model.")
     fixed_effects = fixef(lm1)
     
     long$int_fixed = fixed_effects[1] 
     long$qq_fixed = fixed_effects[2]
     
-    print("Imputing..")
+    print("Imputing...")
     long_betas = long %>% left_join(period_effects) %>% left_join(sample_effects) %>%
       mutate(int_full = int_fixed + int_sample + int_period,
              qq_full = qq_fixed + qq_sample + qq_period,
@@ -114,7 +115,7 @@ combine_category = function(f, local_title, save_path) {
     write.csv(long_betas, paste0(save_path, local_fn, '_imputed_samples.csv'))
     
     # and convert and take the mean
-    print("Taking the mean..")
+    print("Taking the mean...")
     condensed = long_betas %>% group_by(period) %>%
       summarize(imp_value=mean(imputed_value),
                 avg_value=mean(value)) # take the mean of these
